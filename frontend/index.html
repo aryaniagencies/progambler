@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProGambler</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Helvetica, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+    }
+    main {
+      display: flex;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .panel {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .controls { flex: 1; min-width: 260px; }
+    .preview { flex: 2; min-width: 320px; text-align: center; }
+    button {
+      display: block;
+      width: 100%;
+      margin-bottom: 0.75rem;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 6px;
+      background: #e94560;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover { background: #ff6b6b; }
+    #status {
+      margin-top: 0.5rem;
+      padding: 0.75rem;
+      background: #0f3460;
+      border-radius: 6px;
+      font-family: Consolas, monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #ik91 {
+      max-width: 100%;
+      max-height: 60vh;
+      border-radius: 8px;
+      background: #0f3460;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ProGambler</h1>
+    <p>WebView2 frontend ↔ C++ backend bridge</p>
+  </header>
+
+  <main>
+    <section class="panel controls">
+      <button id="btn-ping" type="button">Ping backend</button>
+      <button id="btn-gamble" type="button" onclick="window.dispatch(0, '')">Gamble (update image)</button>
+      <button id="btn-log" type="button">Send log to backend</button>
+      <div id="status">Waiting for backend…</div>
+    </section>
+
+    <section class="panel preview">
+      <img id="mainimage" alt="Gambler result"
+        src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgc3R5bGU9ImZpbGw6IHJnYmEoMCwwLDAsMC4xNSk7IHRyYW5zZm9ybTogc2NhbGUoMC43NSkiPgogICAgICAgIDxwYXRoIGQ9Ik04LjUgMTMuNWwyLjUgMyAzLjUtNC41IDQuNSA2SDVtMTYgMVY1YTIgMiAwIDAgMC0yLTJINWMtMS4xIDAtMiAuOS0yIDJ2MTRjMCAxLjEuOSAyIDIgMmgxNGMxLjEgMCAyLS45IDItMnoiPjwvcGF0aD4KICAgICAgPC9zdmc+" />
+    </section>
+  </main>
+
+  <script>
+	  function updateUI(id, value) {
+
+		  document.getElementById(id).src=value;
+	  }
+    const AppBridge = {
+      async send(command, payload = {}) {
+        if (!window.postToCpp) {
+          console.warn("C++ backend not ready.");
+          return { status: "error", message: "Backend not available" };
+        }
+
+        const request = JSON.stringify({ command, ...payload });
+        try {
+          const response = await window.postToCpp(request);
+          return typeof response === "string" ? JSON.parse(response) : response;
+        } catch (err) {
+          console.error("Backend communication failed:", err);
+          return { status: "error", message: String(err) };
+        }
+      },
+
+      init() {
+        window.addEventListener("cpp-update", (event) => {
+          const { id, value } = event.detail || {};
+          this.uiUpdateHandler(id, value);
+        });
+        console.log("AppBridge initialized.");
+      },
+
+      uiUpdateHandler(id, value) {
+        const element = document.getElementById(id);
+        if (!element) return;
+
+        if (element.tagName === "IMG" || element.tagName === "VIDEO") {
+          element.src = value;
+        } else if (element.type === "radio" || element.type === "checkbox") {
+          element.checked = value === "true" || value === true;
+        } else {
+          element.textContent = value;
+        }
+      }
+    };
+
+    AppBridge.init();
+
+    document.getElementById("btn-ping").addEventListener("click", async () => {
+      const result = await AppBridge.send("ping", { time: Date.now() });
+      AppBridge.uiUpdateHandler("status", JSON.stringify(result, null, 2));
+    });
+
+    document.getElementById("btn-gamble").addEventListener("click", async () => {
+      AppBridge.uiUpdateHandler("status", "Gambling…");
+      const result = await AppBridge.send("gamble");
+      AppBridge.uiUpdateHandler("status", JSON.stringify(result, null, 2));
+    });
+
+    document.getElementById("btn-log").addEventListener("click", async () => {
+      const result = await AppBridge.send("log", { message: "Hello from WebView2" });
+      AppBridge.uiUpdateHandler("status", JSON.stringify(result, null, 2));
+    });
+
+    window.addEventListener("load", () => {
+      AppBridge.uiUpdateHandler("status", "Backend connected.");
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>C++ WebSocket Client</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; background: #121212; color: #e0e0e0; }
+        input, button { padding: 10px; font-size: 16px; margin-right: 10px; }
+        #log { margin-top: 20px; background: #1e1e1e; padding: 15px; border-radius: 5px; height: 250px; overflow-y: auto; font-family: monospace; border: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+    <h2>C++ Backend WebSocket Client</h2>
+    <div>
+        <input type="text" id="serverUrl" value="ws://localhost:9001" style="width: 200px;">
+        <button id="connectBtn">Connect</button>
+        <br><br>
+        <input type="text" id="messageInput" placeholder="Type a message to C++ backend..." style="width: 300px;" disabled>
+        <button id="sendBtn" disabled>Send</button>
+    </div>
+
+    <h3>Event Log:</h3>
+    <div id="log"></div>
+
+    <script>
+        let socket = null;
+        const logDiv = document.getElementById('log');
+        const connectBtn = document.getElementById('connectBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const messageInput = document.getElementById('messageInput');
+        const serverUrlInput = document.getElementById('serverUrl');
+
+        function log(text, isError = false) {
+            const color = isError ? '#ff6b6b' : '#e0e0e0';
+            logDiv.innerHTML += `<span style="color: ${color}">> ${text}</span><br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        connectBtn.onclick = () => {
+            if (socket) {
+                socket.close();
+            }
+
+            const url = serverUrlInput.value;
+            log(`Connecting to C++ backend at ${url}...`);
+
+            // Initialize standard WebSocket
+            socket = new WebSocket(url);
+
+            socket.onopen = () => {
+                log('Connected to backend successfully!');
+                connectBtn.textContent = 'Disconnect';
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                serverUrlInput.disabled = true;
+            };
+
+            socket.onmessage = (event) => {
+                log(`Received from C++: ${event.data}`);
+            };
+
+            socket.onclose = (event) => {
+                log(`Disconnected from backend (Code: ${event.code})`, true);
+                resetUI();
+            };
+
+            socket.onerror = (error) => {
+                log(`WebSocket error occurred. Make sure your C++ server is running.`, true);
+            };
+        };
+
+        sendBtn.onclick = () => {
+            const text = messageInput.value;
+            if (!text || !socket) return;
+
+            // Send text frame to the C++ server
+            socket.send(text);
+            log(`Sent to C++: ${text}`);
+            messageInput.value = '';
+        };
+
+        // Allow pressing 'Enter' to send messages
+        messageInput.onkeypress = (e) => {
+            if (e.key === 'Enter') sendBtn.click();
+        };
+
+        function resetUI() {
+            connectBtn.textContent = 'Connect';
+            messageInput.disabled = true;
+            sendBtn.disabled = true;
+            serverUrlInput.disabled = false;
+            socket = null;
+        }
+    </script>
+</body>
+</html>

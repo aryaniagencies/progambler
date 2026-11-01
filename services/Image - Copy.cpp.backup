@@ -1,0 +1,72 @@
+// SimpleImage: GPU-accelerated minimal multimedia operations class using OpenCV CUDA modules
+// This version uses cv::UMat for GPU acceleration when available, but falls back to CPU if not, so it can run everywhere
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/umat.hpp>
+#include <string>
+
+class SimpleImage {
+public:
+    SimpleImage() = default;
+    explicit SimpleImage(const std::string& filename) { load(filename); }
+
+    bool load(const std::string& filename) {
+        cv::Mat cpu_img = cv::imread(filename, cv::IMREAD_UNCHANGED);
+        if (cpu_img.empty()) return false;
+        cpu_img.copyTo(img_umat_);
+        return !img_umat_.empty();
+    }
+    bool save(const std::string& filename) const {
+        if (img_umat_.empty()) return false;
+        cv::Mat cpu_out;
+        img_umat_.copyTo(cpu_out);
+        return cv::imwrite(filename, cpu_out);
+    }
+
+    // Convert to another format (filename's extension)
+    bool convert(const std::string& out_filename) {
+        return save(out_filename);
+    }
+
+    // Add watermark text at bottom-right (uses CPU, then uploads)
+    void add_watermark(const std::string& text) {
+        if (img_umat_.empty()) return;
+        cv::Mat cpu_img;
+        img_umat_.copyTo(cpu_img);
+        int font = cv::FONT_HERSHEY_SIMPLEX;
+        double scale = 1.0;
+        int thickness = 2;
+        int baseline = 0;
+        cv::Size textSize = cv::getTextSize(text, font, scale, thickness, &baseline);
+        cv::Point org(cpu_img.cols - textSize.width - 10, cpu_img.rows - 10);
+        cv::putText(cpu_img, text, org, font, scale, cv::Scalar(255,255,255,255), thickness, cv::LINE_AA);
+        cpu_img.copyTo(img_umat_);
+    }
+
+    // Apply a filter (supported: "grayscale", "invert"), UMat accelerated
+    void apply_filter(const std::string& filter) {
+        if (img_umat_.empty()) return;
+        if (filter == "grayscale") {
+            cv::UMat gray;
+            cv::cvtColor(img_umat_, gray, cv::COLOR_BGR2GRAY);
+            cv::cvtColor(gray, img_umat_, cv::COLOR_GRAY2BGR);
+        } else if (filter == "invert") {
+            cv::bitwise_not(img_umat_, img_umat_);
+        }
+        // Add more filters if needed
+    }
+
+    // Apply Gaussian blur with given kernel size (must be odd and > 1)
+    void blur(int ksize = 5) {
+        if (img_umat_.empty() || ksize < 3 || ksize % 2 == 0) return;
+        cv::UMat blurred;
+        cv::GaussianBlur(img_umat_, blurred, cv::Size(ksize, ksize), 0);
+        img_umat_ = blurred;
+    }
+
+    // Access underlying data for advanced users
+    cv::UMat& data() { return img_umat_; }
+    const cv::UMat& data() const { return img_umat_; }
+
+private:
+    cv::UMat img_umat_;
+};

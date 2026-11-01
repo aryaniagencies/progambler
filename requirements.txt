@@ -1,0 +1,14 @@
+1 A gambler widget that gives a random image everytime a button is clicked
+
+Design considerations: 
+	1 classic gambler look and feel
+	2 can add any modern elements if need be
+	
+Scope: 
+	1 Windows hybrid app that can also be deployed on android later on
+	2 Lightweight, no internet needed
+	
+Phases: 
+	1 a cli only application
+	2 full fledged windows hybrid application
+	3 android application
