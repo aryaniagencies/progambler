@@ -1,4 +1,0 @@
-
-### Compile Command ###
-
-g++ -std=c++17 -O3 -flto -march=native main_webview.cpp -o temp     -I./webview     `pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.1`     -pthread -Wl,--gc-sections### Compile using ###
